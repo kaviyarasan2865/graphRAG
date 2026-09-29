@@ -198,3 +198,7 @@ python -m pytest        # 30 unit tests (parser, graph builder, pipelines, agent
 Paste `gsql/01_schema.gsql` then `gsql/02_queries.gsql` into the Savanna GSQL
 editor and run. Set the vector `DIMENSION` to match your embedder (1024 for
 bge-m3, 768 for Gemini `text-embedding-004`).
+
+## Demo
+
+Project Demo Video [Link](https://drive.google.com/file/d/1kgm8t9iDXLg1QfzW1f63Aoi2v5ith-oL/view?usp=sharing)
