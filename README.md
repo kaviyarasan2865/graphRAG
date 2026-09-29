@@ -23,10 +23,10 @@ modified by this backend.
 
 ## Architecture
 
-![Architecture diagram](docs/architecture.png)
+![Architecture diagram](BE/docs/architecture.png)
 
-Vector version: [docs/architecture.svg](docs/architecture.svg) · Mermaid source
-and stack details: [docs/architecture.md](docs/architecture.md).
+Vector version: [BE/docs/architecture.svg](BE/docs/architecture.svg) · Mermaid source
+and stack details: [BE/docs/architecture.md](BE/docs/architecture.md).
 
 ## Layout
 
