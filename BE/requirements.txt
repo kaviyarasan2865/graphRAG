@@ -1,0 +1,34 @@
+# Core
+pydantic>=2.7
+pydantic-settings>=2.3
+python-dotenv>=1.0
+
+# API
+fastapi>=0.111
+uvicorn[standard]>=0.30
+
+# TigerGraph
+pyTigerGraph>=1.6
+
+# HTTP / providers
+httpx>=0.27
+requests>=2.32
+
+# Agent orchestration
+# Custom StateGraph uses langgraph; the optional "react" backend additionally
+# uses langgraph.prebuilt.create_react_agent + langchain-ollama tool-calling.
+langgraph>=1.0,<2.0
+langchain-core>=0.3
+langchain-ollama>=0.2
+
+# Data / eval
+pandas>=2.2
+numpy>=1.26
+
+# Dashboard is served as static HTML/JS by FastAPI at "/" (no extra deps).
+
+# Embeddings (in-process, deployable default: BAAI/bge-m3)
+sentence-transformers>=3.0
+
+# Dev
+pytest>=8.2

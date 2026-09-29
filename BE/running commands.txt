@@ -1,0 +1,70 @@
+rm -rf .venv
+python3.13 -m venv .venv          # <-- use python3.13, not python/python3
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
+
+
+.venv/bin/python -m app.ingest.run
+.venv/bin/uvicorn app.api:app --port 8090
+.venv/bin/python -m pytest
+
+
+Step 1 — Apply the schema (creates vertices, edges, vector attribute, graph)
+Savanna is GUI-only, so the easiest reliable way is via the Python client that's already wired to your .env:
+
+bash
+
+# from BE/
+.venv/bin/python -c "
+from app.graph.client import get_client
+from app.graph.schema import render_schema
+c = get_client(); c.connect()
+print(c.gsql(render_schema()))   # render_schema() sets DIMENSION=1024 from EMBED_DIM
+"
+Alternatively, paste 
+01_schema.gsql
+ into the Savanna GSQL editor and Run (the vector DIMENSION is already 1024, matching bge-m3).
+
+Expected: messages ending with the vertex/edge types created and The graph OlympicsKG is created.
+
+Step 2 — Install the query stubs
+bash
+
+.venv/bin/python -c "
+from app.graph.client import get_client
+from app.graph.schema import read_queries
+c = get_client(); c.connect()
+print(c.gsql(read_queries()))          # creates the queries
+print(c.gsql('USE GRAPH OlympicsKG\ninstall query all'))  # installs them (takes a minute)
+"
+Expected: each vector_search, event_by_doc, etc. reported created, then "installed".
+
+Step 3 — Verify the schema is there
+bash
+
+.venv/bin/python -c "
+from app.graph.client import get_client
+c = get_client(); c.connect()
+print(c.gsql('USE GRAPH OlympicsKG\nls'))
+"
+Expect to see the 7 vertex types, 7 edge types, and the installed queries listed.
+
+Step 4 — Load the graph + embeddings (the big one)
+Embeddings are already cached locally (all 2,951 from earlier), so this mostly uploads. It writes ~2,951 docs, 6,206 athletes, ~27k edges, and 2,951 embedding vectors.
+
+bash
+
+.venv/bin/python -m app.ingest.run
+Expected: the graph-row counts, embedded 2951 docs (from cache), then upsert messages, ending with [ingest] done.
+
+Step 5 — Confirm end to end
+bash
+
+# health should show tigergraph_reachable: true
+.venv/bin/uvicorn app.api:app --port 8077 &
+sleep 6
+curl -s http://localhost:8077/health
+# then a live agentic query against the real graph:
+curl -s -X POST http://localhost:8077/ask -H 'Content-Type: application/json' \
+  -d '{"question":"How many biathlon events at the 2018 Winter Olympics had more than 73 competitors?","pipeline":"agentic"}'
+Expected: "answer":"5" with a trace using count_over_threshold.

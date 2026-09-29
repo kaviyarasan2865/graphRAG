@@ -1,0 +1,13 @@
+[project]
+name = "olympics-investigator"
+version = "0.1.0"
+description = "Agentic GraphRAG over an Olympic-events corpus on TigerGraph. Answers questions three ways (RAG, GraphRAG, Agentic) and benchmarks them."
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

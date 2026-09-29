@@ -1,0 +1,83 @@
+// ===========================================================================
+// Olympics Investigator - Graph schema (TigerGraph 4.x)
+// ===========================================================================
+// Run this from the GSQL shell or paste into the Savanna GSQL editor.
+//
+// A Document vertex exists for EVERY corpus doc (Olympic or not) and carries
+// the embedding vector used for semantic search, so RAG/GraphRAG can retrieve
+// any document. Olympic events additionally get rich, queryable structure.
+//
+// The embedding DIMENSION must match the embedding provider:
+//   bge-m3 (Ollama) = 1024   |   gemini text-embedding-004 = 768
+// Edit the DIMENSION below to match EMBED_DIM in your .env before running.
+// ===========================================================================
+
+USE GLOBAL
+
+// WARNING: DROP ALL permanently deletes every graph, vertex/edge type, job,
+// and query in the workspace (including any sample datasets). We do this to
+// start from a clean catalog. Remove this line if you need to keep existing data.
+DROP ALL
+
+// Install graph data science functions (needed for vector distance funcs).
+import package gds
+install function gds.**
+
+// --- Vertices -------------------------------------------------------------
+
+CREATE VERTEX Document (
+  PRIMARY_ID doc_id STRING,
+  title STRING,
+  url STRING,
+  infobox_type STRING,
+  approx_tokens INT,
+  text STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX Event (
+  PRIMARY_ID doc_id STRING,
+  title STRING,
+  event_name STRING,
+  year INT,
+  season STRING,
+  venue STRING,
+  event_date STRING,
+  competitors INT,
+  nations INT,
+  win_value STRING,
+  url STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX Games (
+  PRIMARY_ID games_key STRING,
+  year INT,
+  season STRING
+) WITH primary_id_as_attribute="true"
+
+CREATE VERTEX Venue (PRIMARY_ID name STRING) WITH primary_id_as_attribute="true"
+CREATE VERTEX Sport (PRIMARY_ID name STRING) WITH primary_id_as_attribute="true"
+CREATE VERTEX Athlete (PRIMARY_ID name STRING) WITH primary_id_as_attribute="true"
+CREATE VERTEX Country (PRIMARY_ID noc STRING) WITH primary_id_as_attribute="true"
+
+// --- Edges ----------------------------------------------------------------
+
+CREATE DIRECTED EDGE HAS_DOCUMENT (FROM Event, TO Document)
+CREATE DIRECTED EDGE PART_OF (FROM Event, TO Games)
+CREATE DIRECTED EDGE HELD_AT (FROM Event, TO Venue)
+CREATE DIRECTED EDGE IN_SPORT (FROM Event, TO Sport)
+CREATE DIRECTED EDGE WON_MEDAL (FROM Event, TO Athlete, rank STRING)
+CREATE DIRECTED EDGE REPRESENTS (FROM Athlete, TO Country)
+CREATE DIRECTED EDGE FOLLOWED_BY (FROM Event, TO Event) WITH REVERSE_EDGE="PRECEDED_BY"
+
+// --- Vector attribute on Document -----------------------------------------
+// DIMENSION must equal EMBED_DIM in .env (default 1024 for bge-m3).
+
+CREATE GLOBAL SCHEMA_CHANGE JOB olympics_add_vector {
+  ALTER VERTEX Document ADD VECTOR ATTRIBUTE emb(DIMENSION=1024, METRIC="COSINE");
+}
+RUN GLOBAL SCHEMA_CHANGE JOB olympics_add_vector
+
+// --- Graph ----------------------------------------------------------------
+// * = include all global vertex/edge types.
+
+CREATE GRAPH OlympicsKG (*)

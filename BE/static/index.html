@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Olympics Investigator — Agentic GraphRAG</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <!-- Official TigerGraph logo -->
+      <img class="logo-mark" src="/static/images/image.png" alt="TigerGraph" />
+      <div class="wordmark">
+        <div class="title-row">
+          <h1>Olympics Investigator</h1>
+        </div>
+        <p class="subtitle">Agentic GraphRAG on <span class="tg-name">TigerGraph Savanna</span> — RAG vs GraphRAG vs
+          Agentic</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="powered"><span class="dot"></span>Powered by <b>TigerGraph Savanna</b></span>
+      <div id="health" class="health">
+        <span class="pill pill-muted">checking backend…</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="ask">🔎 Compare pipelines</button>
+    <button class="tab" data-tab="bench">📊 Benchmark</button>
+  </nav>
+
+  <!-- ASK / COMPARE -->
+  <section id="tab-ask" class="tabpane active">
+    <div class="panel">
+      <label class="field-label" for="question">Question</label>
+      <textarea id="question" rows="3"
+        placeholder="e.g. How many biathlon events at the 2018 Winter Olympics had more than 73 competitors?"></textarea>
+
+      <div class="controls">
+        <div class="examples">
+          <label class="field-label">Examples</label>
+          <select id="examples">
+            <option value="">(type your own)</option>
+          </select>
+        </div>
+
+        <div class="pipeline-select">
+          <label class="field-label">Pipelines to run</label>
+          <div class="checks">
+            <label class="chk"><input type="checkbox" value="rag" checked /> RAG</label>
+            <label class="chk"><input type="checkbox" value="graphrag" checked /> GraphRAG</label>
+            <label class="chk"><input type="checkbox" value="agentic" checked /> Agentic</label>
+          </div>
+        </div>
+
+        <div class="agent-impl">
+          <label class="field-label">Agent backend</label>
+          <select id="agentImpl">
+            <option value="">default</option>
+            <option value="graph">graph (custom)</option>
+            <option value="react">react (prebuilt)</option>
+          </select>
+        </div>
+
+        <button id="investigate" class="btn-primary">Investigate</button>
+      </div>
+    </div>
+
+    <div id="results" class="results-grid"></div>
+    <div id="tokenchart" class="tokenchart hidden">
+      <h3>Token cost</h3>
+      <div id="tokenbars" class="bars"></div>
+    </div>
+  </section>
+
+  <!-- BENCHMARK -->
+  <section id="tab-bench" class="tabpane">
+    <div class="panel bench-controls">
+      <div>
+        <label class="field-label" for="benchLimit">Questions (0 = all)</label>
+        <input id="benchLimit" type="number" min="0" value="20" />
+      </div>
+      <button id="runBench" class="btn-secondary">Run benchmark</button>
+      <button id="loadBench" class="btn-secondary">Load latest</button>
+      <span class="hint">Runs every selected pipeline on each question (can be slow).</span>
+    </div>
+
+    <div id="benchSummary" class="bench-summary"></div>
+    <div id="benchByType" class="bench-bytype"></div>
+    <div id="benchDetail" class="bench-detail"></div>
+  </section>
+
+  <footer class="footer">
+    <span id="footerInfo"></span>
+    <span class="powered"><span class="dot"></span>Powered by <b>TigerGraph Savanna</b> · GSQL + Vector DB</span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+
+</html>

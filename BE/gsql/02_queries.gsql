@@ -1,0 +1,124 @@
+// ===========================================================================
+// Olympics Investigator - Installed GSQL queries (SYNTAX v3)
+// ===========================================================================
+// These are the graph/vector primitives the pipelines and agent tools call
+// via RESTPP. Install with:  gsql 02_queries.gsql  then  install query all
+// (or install each query). All queries are read-only.
+// ===========================================================================
+
+USE GRAPH OlympicsKG
+
+// ---------------------------------------------------------------------------
+// vector_search: top-k semantically similar documents.
+// Returns the Document vertices (with title/url/text) + distance map.
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY vector_search (LIST<float> query_vector, INT k) SYNTAX v3 {
+  MapAccum<Vertex, Float> @@distances;
+  v = vectorSearch({Document.emb}, query_vector, k, {distance_map: @@distances});
+  PRINT v[v.doc_id, v.title, v.url, v.infobox_type, v.text] AS docs;
+  PRINT @@distances AS distances;
+}
+
+// ---------------------------------------------------------------------------
+// event_by_doc: fetch one event and its full neighborhood (medalists,
+// venue, games, sport). Used for lookup + as a "hydrate" step by the agent.
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY event_by_doc (STRING doc_id) SYNTAX v3 {
+  // athlete name -> list of medal ranks they won in this event
+  MapAccum<STRING, ListAccum<STRING>> @@medalists;
+
+  ev = SELECT e FROM (e:Event) WHERE e.doc_id == doc_id;
+  PRINT ev AS ev;
+
+  m = SELECT a
+      FROM (e:Event)-[md:WON_MEDAL]->(a:Athlete)
+      WHERE e.doc_id == doc_id
+      ACCUM @@medalists += (a.name -> md.rank);
+  PRINT @@medalists AS medalists;
+}
+
+// ---------------------------------------------------------------------------
+// events_by_games_sport: all events at a given Games (year+season),
+// optionally filtered by sport. Backbone of aggregation/superlative.
+// Pass sport="" to skip the sport filter.
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY events_by_games_sport (INT year, STRING season, STRING sport) SYNTAX v3 {
+  result = SELECT e
+           FROM (e:Event)-[:IN_SPORT]->(s:Sport)
+           WHERE e.year == year
+             AND (season == "" OR e.season == season)
+             AND (sport == "" OR s.name == sport);
+  PRINT result[result.doc_id, result.title, result.event_name,
+               result.competitors, result.nations, result.venue,
+               result.year, result.season] AS events;
+}
+
+// ---------------------------------------------------------------------------
+// count_events_over_threshold: aggregation helper - count events at a Games
+// (optionally a sport) whose competitors exceed a threshold.
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY count_events_over_threshold (
+    INT year, STRING season, STRING sport, INT min_competitors) SYNTAX v3 {
+  SumAccum<INT> @@match_count;
+  matched = SELECT e
+            FROM (e:Event)-[:IN_SPORT]->(s:Sport)
+            WHERE e.year == year
+              AND (season == "" OR e.season == season)
+              AND (sport == "" OR s.name == sport)
+              AND e.competitors > min_competitors
+            ACCUM @@match_count += 1;
+  PRINT @@match_count AS match_count;
+  PRINT matched[matched.doc_id, matched.title, matched.competitors] AS events;
+}
+
+// ---------------------------------------------------------------------------
+// medalists_at_venue_date: multi-hop - who won gold at a venue on a date.
+// Matches venue by name and filters events whose date string contains the
+// given date fragment. Returns gold medalists.
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY medalists_at_venue_date (
+    STRING venue_name, STRING date_fragment, STRING rank) SYNTAX v3 {
+  // winner name -> "rank @ event title"
+  MapAccum<STRING, ListAccum<STRING>> @@winners;
+
+  // events at the venue (optionally matching the date fragment)
+  ev = SELECT e
+       FROM (v:Venue)<-[:HELD_AT]-(e:Event)
+       WHERE v.name == venue_name
+         AND (date_fragment == "" OR e.event_date LIKE ("%" + date_fragment + "%"));
+  PRINT ev[ev.doc_id, ev.title, ev.venue, ev.event_date] AS events;
+
+  // medalists of those events: one pattern from venue -> event -> athlete
+  w = SELECT a
+      FROM (v:Venue)<-[:HELD_AT]-(e:Event)-[m:WON_MEDAL]->(a:Athlete)
+      WHERE v.name == venue_name
+        AND (date_fragment == "" OR e.event_date LIKE ("%" + date_fragment + "%"))
+        AND (rank == "" OR m.rank == rank)
+      ACCUM @@winners += (a.name -> (m.rank + " @ " + e.title));
+  PRINT @@winners AS winners;
+}
+
+// ---------------------------------------------------------------------------
+// event_temporal_neighbor: given an event doc, walk prev/next chain to the
+// adjacent Games edition of the same event. direction: "prev" | "next".
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY event_temporal_neighbor (STRING doc_id, STRING direction) SYNTAX v3 {
+  IF direction == "next" THEN
+    nb = SELECT t
+         FROM (e:Event {doc_id: doc_id})-[:FOLLOWED_BY]->(t:Event);
+  ELSE
+    nb = SELECT t
+         FROM (e:Event {doc_id: doc_id})-[:PRECEDED_BY]->(t:Event);
+  END;
+  PRINT nb[nb.doc_id, nb.title, nb.year, nb.season, nb.event_name] AS neighbor;
+}
+
+// ---------------------------------------------------------------------------
+// events_by_athlete: reverse lookup - events an athlete medaled in.
+// ---------------------------------------------------------------------------
+CREATE OR REPLACE QUERY events_by_athlete (STRING athlete_name) SYNTAX v3 {
+  result = SELECT e
+           FROM (e:Event)-[m:WON_MEDAL]->(a:Athlete)
+           WHERE a.name == athlete_name;
+  PRINT result[result.doc_id, result.title, result.year, result.season] AS events;
+}
